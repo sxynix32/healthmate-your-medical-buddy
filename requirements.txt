@@ -1,0 +1,8 @@
+langchain
+langchain-community
+faiss-cpu
+sentence-transformers==2.2.2
+transformers==4.40.1
+streamlit
+groq
+numpy==1.26.4
