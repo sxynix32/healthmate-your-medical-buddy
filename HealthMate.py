@@ -2,66 +2,44 @@ import os
 import streamlit as st
 from langchain.llms import Groq
 from langchain.embeddings import GroqEmbeddings
-from langchain_community.vectorstores import FAISS
+from langchain.vectorstores import FAISS
 from langchain.chains import RetrievalQA
-from langchain.prompts import PromptTemplate
-from langchain.schema import BaseRetriever
+from langchain.document_loaders import TextLoader
 
-# Constants - update if needed
-INDEX_PATH = "."  # current folder where index.faiss and index.pkl are located
-INDEX_NAME = "index"  # without extension
-
-# Load Groq API key from env
+# Load Groq API key from environment
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 if not GROQ_API_KEY:
-    st.error("Please set the GROQ_API_KEY environment variable.")
+    st.error("GROQ_API_KEY environment variable is missing.")
     st.stop()
 
-# Setup Groq embeddings and LLM
-embeddings = GroqEmbeddings()
-llm = Groq()
+# Initialize LLM and Embeddings
+llm = Groq(api_key=GROQ_API_KEY)
+embeddings = GroqEmbeddings(api_key=GROQ_API_KEY)
 
-@st.cache_resource(show_spinner=True)
-def load_vectorstore() -> FAISS:
-    return FAISS.load_local(
-        folder_path=INDEX_PATH,
-        embedding=embeddings,
-        index_name=INDEX_NAME
-    )
+# Path to your FAISS index and pkl files
+INDEX_PATH = "."  # current folder
+INDEX_NAME = "index"
 
-@st.cache_resource(show_spinner=True)
+@st.cache_resource
+def load_vectorstore():
+    return FAISS.load_local(INDEX_PATH, embeddings, index_name=INDEX_NAME)
+
+@st.cache_resource
 def setup_qa_chain():
     vectorstore = load_vectorstore()
-    retriever: BaseRetriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 3})
-    
-    # Optional: customize prompt or use default
-    prompt_template = """Use the following context to answer the question.
-Context: {context}
-Question: {question}
-Answer:"""
-    prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
-    
-    qa_chain = RetrievalQA.from_chain_type(
-        llm=llm,
-        chain_type="stuff",
-        retriever=retriever,
-        return_source_documents=False,
-        chain_type_kwargs={"prompt": prompt},
-    )
-    return qa_chain
+    retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 3})
+    return RetrievalQA.from_chain_type(llm=llm, chain_type="stuff", retriever=retriever)
 
 def main():
-    st.title("HealthMate — Your Medical Buddy")
+    st.title("HealthMate - Groq + FAISS + LangChain")
 
-    qa = setup_qa_chain()
+    qa_chain = setup_qa_chain()
 
-    user_question = st.text_input("Ask your medical question:")
-
-    if user_question:
-        with st.spinner("Searching answer..."):
-            answer = qa.run(user_question)
-        st.markdown("**Answer:**")
-        st.write(answer)
+    query = st.text_input("Ask a medical question:")
+    if query:
+        response = qa_chain.run(query)
+        st.write(response)
 
 if __name__ == "__main__":
     main()
+
