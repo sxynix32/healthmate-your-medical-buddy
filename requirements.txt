@@ -9,5 +9,5 @@ sentence-transformers
 PyPDF2
 python-dotenv
 huggingface_hub
-langchain>=0.0.283
-langchain-community
+langchain>=0.0.266
+langchain-community>=0.1.16
