@@ -26,8 +26,9 @@ class GroqEmbeddings:
 
 def load_vectorstore():
     embeddings = GroqEmbeddings(GROQ_API_KEY)
-    # Make sure your FAISS index files 'index.faiss' and 'index.pkl' are in the root directory
-    vectorstore = FAISS.load_local(".", embeddings)
+    INDEX_PATH = "."  # folder where your index files are
+    INDEX_NAME = "index"  # base filename without extension
+    vectorstore = FAISS.load_local(INDEX_PATH, embeddings, index_name=INDEX_NAME)
     return vectorstore
 
 def query_groq(prompt):
