@@ -1,75 +1,62 @@
 import os
 import requests
+import streamlit as st
+from langchain.vectorstores import FAISS
+from langchain.schema import Document
+from langchain.text_splitter import CharacterTextSplitter
 
-class GroqLLM:
+# Your Groq API key from Streamlit secrets or env var
+GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+
+class GroqEmbeddings:
     def __init__(self, api_key):
         self.api_key = api_key
 
-    def __call__(self, prompt):
-        url = "https://api.groq.ai/v1/completions"  # Example Groq endpoint
+    def embed(self, texts):
+        # texts can be list or single string
+        if isinstance(texts, str):
+            texts = [texts]
+        url = "https://api.groq.ai/v1/embeddings"
         headers = {"Authorization": f"Bearer {self.api_key}"}
-        json_data = {
-            "model": "gpt-4o-mini",  # Or your Groq model name
-            "prompt": prompt,
-            "max_tokens": 150,
-        }
-        response = requests.post(url, headers=headers, json=json_data)
+        payload = {"model": "gpt-4o-mini", "input": texts}
+        response = requests.post(url, headers=headers, json=payload)
         response.raise_for_status()
         data = response.json()
-        return data["choices"][0]["text"]
+        return [item["embedding"] for item in data["data"]]
 
-# Usage in your Streamlit app:
-import streamlit as st
-from langchain_community.vectorstores import FAISS
-from langchain.chains import RetrievalQA
-from langchain.embeddings import GroqEmbeddings
-from pathlib import Path
-
-INDEX_PATH = Path(".")
-
-@st.cache_resource(show_spinner=True)
-def load_embeddings():
-    return GroqEmbeddings()
-
-@st.cache_resource(show_spinner=True)
 def load_vectorstore():
-    embeddings = load_embeddings()
-    vectorstore = FAISS.load_local(
-        INDEX_PATH,
-        embeddings,
-        faiss_index_name="index",
-        faiss_pickle_name="index.pkl",
-        allow_dangerous_deserialization=True,
-    )
+    embeddings = GroqEmbeddings(GROQ_API_KEY)
+    # Make sure your FAISS index files 'index.faiss' and 'index.pkl' are in the root directory
+    vectorstore = FAISS.load_local(".", embeddings)
     return vectorstore
 
-@st.cache_resource(show_spinner=True)
-def setup_qa_chain():
-    vectorstore = load_vectorstore()
-    retriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 3})
-
-    groq_api_key = os.getenv("GROQ_API_KEY")
-    llm = GroqLLM(groq_api_key)
-
-    # Simple retrieval + generation manually:
-    def qa_chain(query):
-        docs = retriever.get_relevant_documents(query)
-        context = "\n".join([doc.page_content for doc in docs])
-        prompt = f"Use the following context to answer the question:\n{context}\n\nQuestion: {query}\nAnswer:"
-        return llm(prompt)
-
-    return qa_chain
+def query_groq(prompt):
+    url = "https://api.groq.ai/v1/completions"
+    headers = {"Authorization": f"Bearer {GROQ_API_KEY}"}
+    json_data = {
+        "model": "gpt-4o-mini",
+        "prompt": prompt,
+        "max_tokens": 200,
+        "temperature": 0.3,
+        "stop": None,
+    }
+    response = requests.post(url, headers=headers, json=json_data)
+    response.raise_for_status()
+    completion = response.json()
+    return completion["choices"][0]["text"]
 
 def main():
-    st.title("HealthMate - Your Medical Buddy with Groq (Manual)")
+    st.title("HealthMate — Medical Chatbot with Groq")
+    vectorstore = load_vectorstore()
 
-    qa = setup_qa_chain()
-
-    query = st.text_input("Ask your medical question:")
+    query = st.text_input("Ask me a medical question:")
     if query:
-        with st.spinner("Getting answer from Groq..."):
-            response = qa(query)
-            st.write(response)
+        docs = vectorstore.similarity_search(query, k=3)
+        context = "\n".join([doc.page_content for doc in docs])
+        prompt = f"Context: {context}\n\nQuestion: {query}\nAnswer:"
+        answer = query_groq(prompt)
+        st.write(answer)
 
 if __name__ == "__main__":
     main()
+
