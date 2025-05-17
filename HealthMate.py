@@ -1,49 +1,51 @@
 import streamlit as st
 import os
 import requests
+from pathlib import Path
+from dotenv import load_dotenv
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
 from langchain_core.prompts import PromptTemplate
 from langchain_groq import ChatGroq
-from dotenv import load_dotenv
 
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# Replace these URLs with your Hugging Face raw file URLs
-HF_INDEX_FAISS_URL = "https://huggingface.co/datasets/SxyNix344/healthmate/blob/main/index.faiss"
-HF_INDEX_PKL_URL = "https://huggingface.co/datasets/SxyNix344/healthmate/blob/main/index.pk1"
+# Google Drive direct download links for your files:
+FAISS_INDEX_URL = "https://drive.google.com/uc?export=download&id=1w3lxcjluJm2Chtkzg8eKL4AL-n3-_bg7"
+PKL_INDEX_URL = "https://drive.google.com/uc?export=download&id=1pkYHbRViooKvnFhL8BGGrQleT3BmRphG"
 
-LOCAL_INDEX_FAISS = "./index.faiss"
-LOCAL_INDEX_PKL = "./index.pkl"
+# Local paths to save the downloaded index files
+INDEX_DIR = Path("faiss_index")
+INDEX_DIR.mkdir(exist_ok=True)
+FAISS_INDEX_PATH = INDEX_DIR / "index.faiss"
+PKL_INDEX_PATH = INDEX_DIR / "index.pkl"
 
-def download_file(url, local_path):
-    if not os.path.exists(local_path):
-        r = requests.get(url)
-        r.raise_for_status()
-        with open(local_path, "wb") as f:
-            f.write(r.content)
-        print(f"Downloaded {local_path}")
-    else:
-        print(f"{local_path} already exists, skipping download")
+def download_file(url: str, dest_path: Path):
+    if dest_path.exists():
+        return
+    response = requests.get(url)
+    response.raise_for_status()
+    with open(dest_path, "wb") as f:
+        f.write(response.content)
 
 @st.cache_resource(show_spinner=False)
 def load_vectorstore():
-    download_file(HF_INDEX_FAISS_URL, LOCAL_INDEX_FAISS)
-    download_file(HF_INDEX_PKL_URL, LOCAL_INDEX_PKL)
-
+    # Download index files if not present
+    download_file(FAISS_INDEX_URL, FAISS_INDEX_PATH)
+    download_file(PKL_INDEX_URL, PKL_INDEX_PATH)
+    
     embeddings = HuggingFaceEmbeddings()
-
-    vectorstore = FAISS.load_local(
-        ".",             # directory where the files live
+    return FAISS.load_local(
+        str(INDEX_DIR),
         embeddings,
-        index_name="index",  # basename of your .faiss and .pkl files (without extension)
+        index_name="index",
         allow_dangerous_deserialization=True,
     )
-    return vectorstore
 
+@st.cache_resource(show_spinner=False)
 def setup_qa_chain():
     llm = ChatGroq(
         api_key=GROQ_API_KEY,
@@ -67,6 +69,7 @@ Answer:"""
         retriever=vectorstore.as_retriever(),
         chain_type_kwargs={"prompt": prompt}
     )
+
     return qa_chain
 
 def main():
@@ -75,10 +78,4 @@ def main():
 
     if query:
         qa = setup_qa_chain()
-        with st.spinner("🔍 Searching..."):
-            response = qa.run(query)
-        st.success(response)
-
-if __name__ == "__main__":
-    main()
-
+        with st.spinner("🔍 Searching...
