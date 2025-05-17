@@ -1,12 +1,15 @@
 import os
 import streamlit as st
+
 from langchain_community.vectorstores import FAISS
 from langchain.embeddings import GroqEmbeddings
-from langchain.chains import RetrievalQA
-from langchain.chat_models import ChatOpenAI  # replace with your Groq LLM import if available
 
-# Your Groq API key here
-GROQ_API_KEY = "your_groq_api_key"
+GROQ_API_KEY = os.getenv("GROQ_API_KEY")
+if not GROQ_API_KEY:
+    raise ValueError("GROQ_API_KEY environment variable not set")
+
+# Then use GROQ_API_KEY when instantiating embeddings
+embeddings = GroqEmbeddings(groq_api_key=GROQ_API_KEY)
 
 # Constants for index location
 INDEX_PATH = "."
