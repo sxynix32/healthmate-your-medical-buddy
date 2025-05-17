@@ -13,8 +13,8 @@ load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
 # Replace these URLs with your Hugging Face raw file URLs
-HF_INDEX_FAISS_URL = "https://huggingface.co/your-username/your-repo/resolve/main/index.faiss"
-HF_INDEX_PKL_URL = "https://huggingface.co/your-username/your-repo/resolve/main/index.pkl"
+HF_INDEX_FAISS_URL = "https://huggingface.co/datasets/SxyNix344/healthmate/blob/main/index.faiss"
+HF_INDEX_PKL_URL = "https://huggingface.co/datasets/SxyNix344/healthmate/blob/main/index.pk1"
 
 LOCAL_INDEX_FAISS = "./index.faiss"
 LOCAL_INDEX_PKL = "./index.pkl"
