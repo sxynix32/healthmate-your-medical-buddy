@@ -6,42 +6,22 @@ from langchain_core.prompts import PromptTemplate
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
 import os
-from huggingface_hub import hf_hub_download
 
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")  # Add to Streamlit secrets
-DATASET_ID = "SxyNix344/healthmate"
+INDEX_PATH = "faiss_index"  # your local folder with .faiss and .pkl files
 
-@st.cache_resource
+# Make sure this matches the embedding model you used to create the FAISS index!
+EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
+
 def load_embeddings():
-    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    return HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
 
 @st.cache_resource
 def load_vectorstore():
-    st.write("🔽 Downloading vectorstore from Hugging Face...")
-
-    index_file = hf_hub_download(
-        repo_id=DATASET_ID,
-        filename="index.faiss",
-        repo_type="dataset",
-        token=HUGGINGFACE_TOKEN
-    )
-
-    pkl_file = hf_hub_download(
-        repo_id=DATASET_ID,
-        filename="index.pkl",
-        repo_type="dataset",
-        token=HUGGINGFACE_TOKEN
-    )
-
     embeddings = load_embeddings()
-    return FAISS.load_local(
-        folder_path=os.path.dirname(index_file),
-        embeddings=embeddings,
-        allow_dangerous_deserialization=True
-    )
+    return FAISS.load_local(INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
 
 def setup_qa_chain():
     llm = ChatGroq(
@@ -71,8 +51,8 @@ def setup_qa_chain():
 
 def main():
     st.title("🩺 HealthMate: Your Medical Buddy")
-    query = st.text_input("Ask me anything:")
-    
+    query = st.text_input("Ask me anything!:")
+
     if query:
         qa = setup_qa_chain()
         with st.spinner("🔍 Searching..."):
