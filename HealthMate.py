@@ -1,4 +1,3 @@
-
 import streamlit as st
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
@@ -6,26 +5,30 @@ from langchain.chains import RetrievalQA
 from langchain_core.prompts import PromptTemplate
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
+from huggingface_hub import hf_hub_download
+from pathlib import Path
 import os
 
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-INDEX_PATH = "faiss_index"
+DATASET_ID = "SxyNix344/healthmate"
 
-from langchain_community.embeddings import HuggingFaceEmbeddings
-
+@st.cache_resource
 def load_embeddings():
-    try:
-        return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    except ImportError as e:
-        st.error("Missing required libraries for HuggingFaceEmbeddings. Please install 'transformers' and 'sentence-transformers'.")
-        raise e
+    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 @st.cache_resource
 def load_vectorstore():
-    embeddings = HuggingFaceEmbeddings()
-    return FAISS.load_local(INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
+    # Download both files from Hugging Face
+    index_file = hf_hub_download(repo_id=DATASET_ID, filename="index.faiss")
+    pkl_file = hf_hub_download(repo_id=DATASET_ID, filename="index.pkl")
+
+    # Get the directory where files were saved
+    index_dir = Path(index_file).parent
+
+    embeddings = load_embeddings()
+    return FAISS.load_local(index_dir, embeddings, allow_dangerous_deserialization=True)
 
 def setup_qa_chain():
     llm = ChatGroq(
@@ -55,8 +58,8 @@ def setup_qa_chain():
 
 def main():
     st.title("🩺 HealthMate: Your Medical Buddy")
-    query = st.text_input("Ask me anything!:")
-    
+    query = st.text_input("Ask me anything:")
+
     if query:
         qa = setup_qa_chain()
         with st.spinner("🔍 Searching..."):
