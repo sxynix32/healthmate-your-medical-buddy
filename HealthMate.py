@@ -1,39 +1,33 @@
 import streamlit as st
+import os
 import requests
-from pathlib import Path
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
 from langchain_core.prompts import PromptTemplate
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
-import os
 
 load_dotenv()
 
-# Your Groq API key in .env as GROQ_API_KEY=...
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 
-# Your Hugging Face repo URLs for index files (replace with your actual URLs)
-HF_INDEX_FAISS_URL = "https://huggingface.co/datasets/SxyNix344/healthmate/blob/main/index.faiss"
-HF_INDEX_PKL_URL = "https://huggingface.co/datasets/SxyNix344/healthmate/blob/main/index.pkl"
+# Replace these URLs with your Hugging Face raw file URLs
+HF_INDEX_FAISS_URL = "https://huggingface.co/your-username/your-repo/resolve/main/index.faiss"
+HF_INDEX_PKL_URL = "https://huggingface.co/your-username/your-repo/resolve/main/index.pkl"
 
-# Optional HF token if repo is private; set in .env as HF_TOKEN=...
-HF_TOKEN = os.getenv("HF_TOKEN")
+LOCAL_INDEX_FAISS = "./index.faiss"
+LOCAL_INDEX_PKL = "./index.pkl"
 
-# Local paths to save downloaded index files
-LOCAL_INDEX_FAISS = Path("index.faiss")
-LOCAL_INDEX_PKL = Path("index.pkl")
-
-def download_file(url: str, dest_path: Path):
-    headers = {"Authorization": f"Bearer {HF_TOKEN}"} if HF_TOKEN else {}
-    if not dest_path.exists():
-        with requests.get(url, headers=headers, stream=True) as r:
-            r.raise_for_status()
-            with open(dest_path, "wb") as f:
-                for chunk in r.iter_content(chunk_size=8192):
-                    f.write(chunk)
-    return dest_path
+def download_file(url, local_path):
+    if not os.path.exists(local_path):
+        r = requests.get(url)
+        r.raise_for_status()
+        with open(local_path, "wb") as f:
+            f.write(r.content)
+        print(f"Downloaded {local_path}")
+    else:
+        print(f"{local_path} already exists, skipping download")
 
 @st.cache_resource(show_spinner=False)
 def load_vectorstore():
@@ -42,17 +36,14 @@ def load_vectorstore():
 
     embeddings = HuggingFaceEmbeddings()
 
-    # IMPORTANT: index_name must be 'index' (matching 'index.faiss' & 'index.pkl')
     vectorstore = FAISS.load_local(
-        ".",  # directory where files are downloaded
+        ".",             # directory where the files live
         embeddings,
-        index_name="index",
+        index_name="index",  # basename of your .faiss and .pkl files (without extension)
         allow_dangerous_deserialization=True,
     )
     return vectorstore
 
-
-@st.cache_resource(show_spinner=False)
 def setup_qa_chain():
     llm = ChatGroq(
         api_key=GROQ_API_KEY,
@@ -80,7 +71,6 @@ Answer:"""
 
 def main():
     st.title("🩺 HealthMate: Your Medical Buddy")
-
     query = st.text_input("Ask me anything!")
 
     if query:
@@ -91,3 +81,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
