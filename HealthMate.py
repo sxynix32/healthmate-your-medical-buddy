@@ -13,6 +13,15 @@ load_dotenv()
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 INDEX_PATH = "faiss_index"
 
+from langchain_community.embeddings import HuggingFaceEmbeddings
+
+def load_embeddings():
+    try:
+        return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
+    except ImportError as e:
+        st.error("Missing required libraries for HuggingFaceEmbeddings. Please install 'transformers' and 'sentence-transformers'.")
+        raise e
+
 @st.cache_resource
 def load_vectorstore():
     embeddings = HuggingFaceEmbeddings()
