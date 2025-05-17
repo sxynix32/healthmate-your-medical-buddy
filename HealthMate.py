@@ -1,57 +1,58 @@
-import os
-from dotenv import load_dotenv
 import streamlit as st
-from langchain.llms import Groq
-from langchain.embeddings import GroqEmbeddings
-from langchain.vectorstores import FAISS
+from langchain_community.vectorstores import FAISS
+from langchain_community.embeddings import HuggingFaceEmbeddings
 from langchain.chains import RetrievalQA
-from langchain.document_loaders import TextLoader
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain_core.prompts import PromptTemplate
+from langchain_groq import ChatGroq
+from dotenv import load_dotenv
+import os
 
-# Load env variables from .env
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-if not GROQ_API_KEY:
-    st.error("GROQ_API_KEY not found in environment variables!")
-    st.stop()
+INDEX_PATH = "faiss_index"  # Folder where your index files (index.faiss, index.pkl) reside
 
-# Initialize Groq LLM and embeddings with your API key set in env
-os.environ["GROQ_API_KEY"] = GROQ_API_KEY
+@st.cache_resource(show_spinner=False)
+def load_vectorstore():
+    embeddings = HuggingFaceEmbeddings()
+    # Make sure you have index.faiss and index.pkl inside INDEX_PATH directory
+    return FAISS.load_local(INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
 
-def load_vectorstore(embeddings):
-    """Load or create FAISS vectorstore."""
-    if os.path.exists("faiss_index.pkl") and os.path.exists("faiss_index.faiss"):
-        # Load existing FAISS index
-        return FAISS.load_local(".", embeddings)
-    else:
-        # Example: load documents, split, embed, and build vectorstore
-        docs = TextLoader("docs/your_docs.txt").load()
-        splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-        docs_split = splitter.split_documents(docs)
-        return FAISS.from_documents(docs_split, embeddings)
-
-@st.cache_resource(show_spinner=True)
 def setup_qa_chain():
-    embeddings = GroqEmbeddings()
-    vectorstore = load_vectorstore(embeddings)
-    retriever = vectorstore.as_retriever()
-    llm = Groq(model="llama2", temperature=0)
-    qa_chain = RetrievalQA.from_chain_type(llm=llm, retriever=retriever)
+    llm = ChatGroq(
+        api_key=GROQ_API_KEY,
+        model="llama3-8b-8192"
+    )
+
+    vectorstore = load_vectorstore()
+
+    prompt_template = """You are a helpful medical assistant. Use the following context to answer the question.
+
+Context: {context}
+Question: {question}
+
+Answer:"""
+
+    prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
+
+    qa_chain = RetrievalQA.from_chain_type(
+        llm=llm,
+        chain_type="stuff",
+        retriever=vectorstore.as_retriever(),
+        chain_type_kwargs={"prompt": prompt}
+    )
+
     return qa_chain
 
 def main():
-    st.title("HealthMate - Medical Buddy with Groq LLM")
-    qa = setup_qa_chain()
+    st.title("🩺 HealthMate: Your Medical Buddy")
+    query = st.text_input("Ask me anything!:")
 
-    query = st.text_input("Ask your medical question:")
     if query:
-        with st.spinner("Fetching answer..."):
-            answer = qa.run(query)
-        st.markdown(f"**Answer:** {answer}")
+        qa = setup_qa_chain()
+        with st.spinner("🔍 Searching..."):
+            response = qa.run(query)
+        st.success(response)
 
 if __name__ == "__main__":
     main()
-
-
-
