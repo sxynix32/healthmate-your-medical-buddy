@@ -1,6 +1,5 @@
 import os
 import streamlit as st
-from langchain.llms import Groq
 from langchain.embeddings import GroqEmbeddings
 from langchain.vectorstores import FAISS
 from langchain.chains import RetrievalQA
