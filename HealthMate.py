@@ -6,22 +6,55 @@ from langchain_core.prompts import PromptTemplate
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
 import os
+from pathlib import Path
+import requests
 
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-INDEX_PATH = "faiss_index"  # Folder where your index files (index.faiss, index.pkl) reside
+
+# Your Hugging Face repo info (edit these URLs)
+HF_REPO = "your-hf-username/your-hf-repo-name"
+HF_INDEX_FAISS_URL = f"https://huggingface.co/{HF_REPO}/resolve/main/index.faiss"
+HF_INDEX_PKL_URL = f"https://huggingface.co/{HF_REPO}/resolve/main/index.pkl"
+
+LOCAL_INDEX_DIR = Path("faiss_index")
+LOCAL_INDEX_DIR.mkdir(exist_ok=True)
+LOCAL_INDEX_FAISS = LOCAL_INDEX_DIR / "index.faiss"
+LOCAL_INDEX_PKL = LOCAL_INDEX_DIR / "index.pkl"
+
+@st.cache_resource(show_spinner=False)
+def download_file(url: str, dest_path: Path):
+    if not dest_path.exists():
+        with requests.get(url, stream=True) as r:
+            r.raise_for_status()
+            with open(dest_path, "wb") as f:
+                for chunk in r.iter_content(chunk_size=8192):
+                    f.write(chunk)
+    return dest_path
 
 @st.cache_resource(show_spinner=False)
 def load_vectorstore():
-    embeddings = HuggingFaceEmbeddings()
-    # Make sure you have index.faiss and index.pkl inside INDEX_PATH directory
-    return FAISS.load_local(INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
+    # Download files from Hugging Face if not exist
+    download_file(HF_INDEX_FAISS_URL, LOCAL_INDEX_FAISS)
+    download_file(HF_INDEX_PKL_URL, LOCAL_INDEX_PKL)
 
+    embeddings = HuggingFaceEmbeddings()
+
+    # Load the FAISS index from local files
+    vectorstore = FAISS.load_local(
+        str(LOCAL_INDEX_DIR),
+        embeddings,
+        index_name="index",
+        allow_dangerous_deserialization=True,
+    )
+    return vectorstore
+
+@st.cache_resource(show_spinner=False)
 def setup_qa_chain():
     llm = ChatGroq(
         api_key=GROQ_API_KEY,
-        model="llama3-8b-8192"
+        model="llama3-8b-8192",
     )
 
     vectorstore = load_vectorstore()
@@ -39,14 +72,14 @@ Answer:"""
         llm=llm,
         chain_type="stuff",
         retriever=vectorstore.as_retriever(),
-        chain_type_kwargs={"prompt": prompt}
+        chain_type_kwargs={"prompt": prompt},
     )
 
     return qa_chain
 
 def main():
     st.title("🩺 HealthMate: Your Medical Buddy")
-    query = st.text_input("Ask me anything!:")
+    query = st.text_input("Ask me anything!")
 
     if query:
         qa = setup_qa_chain()
@@ -56,3 +89,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
