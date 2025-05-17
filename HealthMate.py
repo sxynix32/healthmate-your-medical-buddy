@@ -6,51 +6,44 @@ from langchain_core.prompts import PromptTemplate
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
 import os
+from pathlib import Path
 
 load_dotenv()
 
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-INDEX_PATH = "faiss_index"  # your local folder with .faiss and .pkl files
 
-# Make sure this matches the embedding model you used to create the FAISS index!
-EMBEDDING_MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
-
-def load_embeddings():
-    return HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
-
-@st.cache_resource
-from pathlib import Path
-
-INDEX_DIR = Path("faiss_index")
+# Since files are in the main directory
+INDEX_DIR = Path(".")  # current directory
 FAISS_INDEX_FILE = "faiss_index.faiss"
 FAISS_PKL_FILE = "faiss_index.pkl"
+
+def load_embeddings():
+    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
 @st.cache_resource
 def load_vectorstore():
     embeddings = load_embeddings()
     return FAISS.load_local(
-        INDEX_DIR, 
-        embeddings, 
+        INDEX_DIR,
+        embeddings,
         faiss_index_name=FAISS_INDEX_FILE,
         faiss_pickle_name=FAISS_PKL_FILE,
         allow_dangerous_deserialization=True
     )
-
 
 def setup_qa_chain():
     llm = ChatGroq(
         api_key=GROQ_API_KEY,
         model="llama3-8b-8192"
     )
-
     vectorstore = load_vectorstore()
 
     prompt_template = """You are a helpful medical assistant. Use the following context to answer the question.
-    
-    Context: {context}
-    Question: {question}
-    
-    Answer:"""
+
+Context: {context}
+Question: {question}
+
+Answer:"""
 
     prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
 
@@ -60,13 +53,12 @@ def setup_qa_chain():
         retriever=vectorstore.as_retriever(),
         chain_type_kwargs={"prompt": prompt}
     )
-
     return qa_chain
 
 def main():
     st.title("🩺 HealthMate: Your Medical Buddy")
-    query = st.text_input("Ask me anything!:")
-
+    query = st.text_input("Ask me anything!")
+    
     if query:
         qa = setup_qa_chain()
         with st.spinner("🔍 Searching..."):
@@ -75,3 +67,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
