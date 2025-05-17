@@ -37,21 +37,20 @@ def download_file(url: str, dest_path: Path):
 
 @st.cache_resource(show_spinner=False)
 def load_vectorstore():
-    # Download the index files if not present
     download_file(HF_INDEX_FAISS_URL, LOCAL_INDEX_FAISS)
     download_file(HF_INDEX_PKL_URL, LOCAL_INDEX_PKL)
 
-    # Load HuggingFace embeddings
     embeddings = HuggingFaceEmbeddings()
 
-    # Load the FAISS vectorstore from downloaded files
+    # IMPORTANT: index_name must be 'index' (matching 'index.faiss' & 'index.pkl')
     vectorstore = FAISS.load_local(
-        ".",  # current directory where downloaded files are
+        ".",  # directory where files are downloaded
         embeddings,
-        index_name=None,  # default index_name is None, matches 'index.faiss'
+        index_name="index",
         allow_dangerous_deserialization=True,
     )
     return vectorstore
+
 
 @st.cache_resource(show_spinner=False)
 def setup_qa_chain():
