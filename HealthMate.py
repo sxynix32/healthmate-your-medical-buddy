@@ -26,10 +26,13 @@ class GroqEmbeddings:
 
 def load_vectorstore():
     embeddings = GroqEmbeddings(GROQ_API_KEY)
-    INDEX_PATH = "."  # folder where your index files are
-    INDEX_NAME = "index"  # base filename without extension
+    INDEX_PATH = "."  # folder containing index.faiss and index.pkl
+    INDEX_NAME = "index"  # base filename without extensions
+    print("Loading index from:", INDEX_PATH, "with base name:", INDEX_NAME)
+    print("Files in directory:", os.listdir(INDEX_PATH))  # debug line
     vectorstore = FAISS.load_local(INDEX_PATH, embeddings, index_name=INDEX_NAME)
     return vectorstore
+
 
 def query_groq(prompt):
     url = "https://api.groq.ai/v1/completions"
