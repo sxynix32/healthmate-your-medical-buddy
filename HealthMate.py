@@ -1,4 +1,4 @@
-pip install langchain-groq
+
 import streamlit as st
 from langchain_community.vectorstores import FAISS
 from langchain_community.embeddings import HuggingFaceEmbeddings
