@@ -1,13 +1,13 @@
 
-faiss-cpu
-streamlit
 groq
 numpy==1.26.4
-langchain_groq
 transformers
 sentence-transformers
 PyPDF2
-python-dotenv
-huggingface_hub
-git+https://github.com/hwchase17/langchain.git@main#egg=langchain
-git+https://github.com/hwchase17/langchain-community.git@main#egg=langchain-community
+streamlit>=1.18.1
+langchain>=0.0.266
+langchain-community>=0.0.68
+langchain-groq>=0.0.3
+python-dotenv>=0.21.0
+faiss-cpu>=1.7.2
+huggingface-hub>=0.14.1
