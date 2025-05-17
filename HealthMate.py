@@ -5,36 +5,37 @@ from langchain.chains import RetrievalQA
 from langchain_core.prompts import PromptTemplate
 from langchain_groq import ChatGroq
 from dotenv import load_dotenv
-from huggingface_hub import hf_hub_download, login
 import os
+from huggingface_hub import hf_hub_download
 
-# Load environment variables
 load_dotenv()
 
-# Constants
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
-HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")
+HUGGINGFACE_TOKEN = os.getenv("HUGGINGFACE_TOKEN")  # Add to Streamlit secrets
 DATASET_ID = "SxyNix344/healthmate"
 
-# Log in to Hugging Face if token is provided
-if HUGGINGFACE_TOKEN:
-    login(token=HUGGINGFACE_TOKEN)
-
-# Load HuggingFace embeddings
+@st.cache_resource
 def load_embeddings():
-    try:
-        return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
-    except ImportError as e:
-        st.error("Missing required libraries. Please install 'transformers' and 'sentence-transformers'.")
-        raise e
+    return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
-# Download and load FAISS index
 @st.cache_resource
 def load_vectorstore():
-    st.info("🔽 Downloading vectorstore from Hugging Face...")
-    index_file = hf_hub_download(repo_id=DATASET_ID, filename="index.faiss", token=HUGGINGFACE_TOKEN)
-    pkl_file = hf_hub_download(repo_id=DATASET_ID, filename="index.pkl", token=HUGGINGFACE_TOKEN)
-    
+    st.write("🔽 Downloading vectorstore from Hugging Face...")
+
+    index_file = hf_hub_download(
+        repo_id=DATASET_ID,
+        filename="index.faiss",
+        repo_type="dataset",
+        token=HUGGINGFACE_TOKEN
+    )
+
+    pkl_file = hf_hub_download(
+        repo_id=DATASET_ID,
+        filename="index.pkl",
+        repo_type="dataset",
+        token=HUGGINGFACE_TOKEN
+    )
+
     embeddings = load_embeddings()
     return FAISS.load_local(
         folder_path=os.path.dirname(index_file),
@@ -42,7 +43,6 @@ def load_vectorstore():
         allow_dangerous_deserialization=True
     )
 
-# Set up LLM and QA chain
 def setup_qa_chain():
     llm = ChatGroq(
         api_key=GROQ_API_KEY,
@@ -69,11 +69,10 @@ def setup_qa_chain():
 
     return qa_chain
 
-# Streamlit app
 def main():
     st.title("🩺 HealthMate: Your Medical Buddy")
-    query = st.text_input("Ask me anything about your health:")
-
+    query = st.text_input("Ask me anything:")
+    
     if query:
         qa = setup_qa_chain()
         with st.spinner("🔍 Searching..."):
