@@ -19,11 +19,12 @@ def load_vectorstore():
     vectorstore = FAISS.load_local(
         INDEX_PATH,
         embeddings,
-        faiss_index_name=INDEX_NAME,
-        faiss_pickle_name=PICKLE_NAME,
+        faiss_index_name="index",
+        faiss_pickle_name="index.pkl",
         allow_dangerous_deserialization=True,
     )
     return vectorstore
+
 
 @st.cache_resource(show_spinner=True)
 def setup_qa_chain():
