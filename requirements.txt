@@ -7,3 +7,6 @@ numpy==1.26.4
 langchain_groq
 transformers
 sentence-transformers
+PyPDF2
+python-dotenv
+huggingface_hub
