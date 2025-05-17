@@ -1,52 +1,67 @@
-pip install --upgrade langchain langchain-community
 import os
 import streamlit as st
-from langchain_community.vectorstores import FAISS
+from langchain.llms import Groq
 from langchain.embeddings import GroqEmbeddings
+from langchain_community.vectorstores import FAISS
+from langchain.chains import RetrievalQA
+from langchain.prompts import PromptTemplate
+from langchain.schema import BaseRetriever
+
+# Constants - update if needed
+INDEX_PATH = "."  # current folder where index.faiss and index.pkl are located
+INDEX_NAME = "index"  # without extension
+
+# Load Groq API key from env
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 if not GROQ_API_KEY:
-    raise ValueError("GROQ_API_KEY environment variable not set")
+    st.error("Please set the GROQ_API_KEY environment variable.")
+    st.stop()
 
-# Then use GROQ_API_KEY when instantiating embeddings
-embeddings = GroqEmbeddings(groq_api_key=GROQ_API_KEY)
-
-# Constants for index location
-INDEX_PATH = "."
-INDEX_NAME = "index"
+# Setup Groq embeddings and LLM
+embeddings = GroqEmbeddings()
+llm = Groq()
 
 @st.cache_resource(show_spinner=True)
-def load_vectorstore():
-    embeddings = GroqEmbeddings(groq_api_key=GROQ_API_KEY)
-
-    st.write("Loading FAISS index from folder:", os.path.abspath(INDEX_PATH))
-    st.write("Files found:", os.listdir(INDEX_PATH))
-
-    vectorstore = FAISS.load_local(INDEX_PATH, embeddings, index_name=INDEX_NAME)
-    return vectorstore
+def load_vectorstore() -> FAISS:
+    return FAISS.load_local(
+        folder_path=INDEX_PATH,
+        embedding=embeddings,
+        index_name=INDEX_NAME
+    )
 
 @st.cache_resource(show_spinner=True)
 def setup_qa_chain():
     vectorstore = load_vectorstore()
-
-    # Use ChatOpenAI as a placeholder - replace with your Groq LLM chain if available
-    llm = ChatOpenAI(temperature=0)  
-
-    qa = RetrievalQA.from_chain_type(llm=llm, retriever=vectorstore.as_retriever())
-    return qa
+    retriever: BaseRetriever = vectorstore.as_retriever(search_type="similarity", search_kwargs={"k": 3})
+    
+    # Optional: customize prompt or use default
+    prompt_template = """Use the following context to answer the question.
+Context: {context}
+Question: {question}
+Answer:"""
+    prompt = PromptTemplate(template=prompt_template, input_variables=["context", "question"])
+    
+    qa_chain = RetrievalQA.from_chain_type(
+        llm=llm,
+        chain_type="stuff",
+        retriever=retriever,
+        return_source_documents=False,
+        chain_type_kwargs={"prompt": prompt},
+    )
+    return qa_chain
 
 def main():
-    st.title("HealthMate - Groq + FAISS Chatbot")
+    st.title("HealthMate — Your Medical Buddy")
 
     qa = setup_qa_chain()
 
-    query = st.text_input("Ask your medical question:")
+    user_question = st.text_input("Ask your medical question:")
 
-    if query:
-        with st.spinner("Thinking..."):
-            answer = qa.run(query)
-        st.markdown(f"**Answer:** {answer}")
+    if user_question:
+        with st.spinner("Searching answer..."):
+            answer = qa.run(user_question)
+        st.markdown("**Answer:**")
+        st.write(answer)
 
 if __name__ == "__main__":
     main()
-
-
