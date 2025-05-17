@@ -19,9 +19,23 @@ def load_embeddings():
     return HuggingFaceEmbeddings(model_name=EMBEDDING_MODEL_NAME)
 
 @st.cache_resource
+from pathlib import Path
+
+INDEX_DIR = Path("faiss_index")
+FAISS_INDEX_FILE = "faiss_index.faiss"
+FAISS_PKL_FILE = "faiss_index.pkl"
+
+@st.cache_resource
 def load_vectorstore():
     embeddings = load_embeddings()
-    return FAISS.load_local(INDEX_PATH, embeddings, allow_dangerous_deserialization=True)
+    return FAISS.load_local(
+        INDEX_DIR, 
+        embeddings, 
+        faiss_index_name=FAISS_INDEX_FILE,
+        faiss_pickle_name=FAISS_PKL_FILE,
+        allow_dangerous_deserialization=True
+    )
+
 
 def setup_qa_chain():
     llm = ChatGroq(
